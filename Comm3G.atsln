@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# AvrStudio Solution File, Format Version 11.00
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "Comm3G", "source\Comm3G.cproj", "{70CD048B-9409-451C-A0F1-4D273BD13C74}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AVR = Debug|AVR
+		Release|AVR = Release|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{70CD048B-9409-451C-A0F1-4D273BD13C74}.Debug|AVR.ActiveCfg = Debug|AVR
+		{70CD048B-9409-451C-A0F1-4D273BD13C74}.Debug|AVR.Build.0 = Debug|AVR
+		{70CD048B-9409-451C-A0F1-4D273BD13C74}.Release|AVR.ActiveCfg = Release|AVR
+		{70CD048B-9409-451C-A0F1-4D273BD13C74}.Release|AVR.Build.0 = Release|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

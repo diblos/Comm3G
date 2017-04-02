@@ -1,0 +1,169 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>5.1</ProjectVersion>
+    <ToolchainName>com.Atmel.AVRGCC32</ToolchainName>
+    <ProjectGuid>{70cd048b-9409-451c-a0f1-4d273bd13c74}</ProjectGuid>
+    <avrdevice>AT32UC3A3256</avrdevice>
+    <avrdeviceseries>none</avrdeviceseries>
+    <OutputType>Executable</OutputType>
+    <Language>C</Language>
+    <OutputFileName>$(MSBuildProjectName)</OutputFileName>
+    <OutputFileExtension>.elf</OutputFileExtension>
+    <OutputDirectory>$(MSBuildProjectDirectory)\$(Configuration)</OutputDirectory>
+    <AssemblyName>h2starter</AssemblyName>
+    <Name>Comm3G</Name>
+    <RootNamespace>h2starter</RootNamespace>
+    <ToolchainFlavour>Native</ToolchainFlavour>
+    <AsfVersion>2.11.1</AsfVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <ToolchainSettings>
+      <AvrGcc32>
+        <avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>True</avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>
+        <avr32gcc.compiler.optimization.level>Optimize for size (-Os)</avr32gcc.compiler.optimization.level>
+        <avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>True</avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>
+        <avr32gcc.compiler.warnings.AllWarnings>True</avr32gcc.compiler.warnings.AllWarnings>
+        <avr32gcc.linker.optimization.GarbageCollectUnusedSections>True</avr32gcc.linker.optimization.GarbageCollectUnusedSections>
+        <avr32gcc.linker.optimization.PutReadOnlyDataInWritableDataSection>True</avr32gcc.linker.optimization.PutReadOnlyDataInWritableDataSection>
+        <avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>True</avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>
+        <avr32gcc.linker.libraries.Libraries>
+          <ListValues>
+            <Value>m</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.Libraries>
+      </AvrGcc32>
+    </ToolchainSettings>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <ToolchainSettings>
+      <Avr32Gcc>
+        <avr32gcc.compiler.directories.IncludePaths>
+          <ListValues>
+            <Value>../includes</Value>
+            <Value>../activities</Value>
+          </ListValues>
+        </avr32gcc.compiler.directories.IncludePaths>
+        <avr32gcc.compiler.optimization.level>Optimize (-O1)</avr32gcc.compiler.optimization.level>
+        <avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>True</avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>
+        <avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>True</avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>
+        <avr32gcc.compiler.optimization.DebugLevel>Maximum (-g3)</avr32gcc.compiler.optimization.DebugLevel>
+        <avr32gcc.compiler.warnings.AllWarnings>True</avr32gcc.compiler.warnings.AllWarnings>
+        <avr32gcc.compiler.miscellaneous.OtherFlags>-Werror-implicit-function-declaration -Wmissing-prototypes -Wpointer-arith -Wstrict-prototypes -mno-cond-exec-before-reload -mrelax -std=gnu99</avr32gcc.compiler.miscellaneous.OtherFlags>
+        <avr32gcc.linker.general.DoNotUseStandardStartFiles>True</avr32gcc.linker.general.DoNotUseStandardStartFiles>
+        <avr32gcc.linker.libraries.Libraries>
+          <ListValues>
+            <Value>libh2framework.a</Value>
+            <Value>libh2core.a</Value>
+            <Value>lib_iniparser.a</Value>
+            <Value>lib_util.a</Value>
+            <Value>lib_font.a</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.Libraries>
+        <avr32gcc.linker.libraries.LibrarySearchPaths>
+          <ListValues>
+            <Value>../libs</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.LibrarySearchPaths>
+        <avr32gcc.linker.optimization.GarbageCollectUnusedSections>True</avr32gcc.linker.optimization.GarbageCollectUnusedSections>
+        <avr32gcc.linker.optimization.PutReadOnlyDataInWritableDataSection>True</avr32gcc.linker.optimization.PutReadOnlyDataInWritableDataSection>
+        <avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>True</avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>
+        <avr32gcc.linker.miscellaneous.LinkerFlags>-T../link_uc3a3256sdram.lds -Wl,--relax -Wl,-e,_trampoline</avr32gcc.linker.miscellaneous.LinkerFlags>
+        <avr32gcc.assembler.debugging.DebugLevel>Maximum (-g3)</avr32gcc.assembler.debugging.DebugLevel>
+        <avr32gcc.preprocessingassembler.debugging.DebugLevel>Maximum (-g3)</avr32gcc.preprocessingassembler.debugging.DebugLevel>
+      </Avr32Gcc>
+    </ToolchainSettings>
+    <PostBuildEvent>avr32-objcopy -O binary $(OutputFileName).elf $(OutputFileName).bin</PostBuildEvent>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="includes\ini.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\pcd.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\sam.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\scom.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\tcp.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\wifi.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="main.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\activity.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\color.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\debug.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\font.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\fposix.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\gui.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\h2core.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\h2framework.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\iso7816.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\scpi.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\theme.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\tlv.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\typedef.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\util.h">
+      <SubType>compile</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="libs\lib_font.a">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="libs\lib_iniparser.a">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="libs\lib_util.a">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="link_uc3a3256sdram.lds">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="libs\libh2core.a">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="libs\libh2framework.a">
+      <SubType>compile</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="includes\" />
+    <Folder Include="libs\" />
+  </ItemGroup>
+  <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
+</Project>
