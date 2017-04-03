@@ -140,6 +140,9 @@
     <Compile Include="includes\util.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="Md5.c">
+      <SubType>compile</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="libs\lib_font.a">

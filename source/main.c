@@ -5,7 +5,6 @@
  *  Author: Justin
  * 1.0.0.0		-			CW		First Release
  */ 
-
 #include <avr32/io.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +20,10 @@
 #include "tcp.h"
 #include "fposix.h"
 #include "scpi.h"
+
+#define bool int
+#define true 1
+#define false 0
 
 #define ACK 0
 #define NACK 1
