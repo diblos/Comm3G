@@ -20,6 +20,7 @@
 #include "tcp.h"
 #include "fposix.h"
 #include "scpi.h"
+#include "md5.h"
 
 #define bool int
 #define true 1
@@ -29,9 +30,15 @@
 #define NACK 1
 
 char data[] = "OTA:2{s:3:DEV;s:16:0001010053415931;}";
-char fname[40];
-char crc16[2];
-int fsize = 0;
+//==================================================
+char fname[] = "ContactlessCard.bin";
+char crc16[] = "7cfb0e5e7173d0e3f94c0bbde0c09682";
+int fsize = 218144;
+//--------------------------------------------------
+//char fname[40];
+//char crc16[2];
+//int fsize = 0;
+//==================================================
 
 extern int reset_arm(void);//reset arm controller
 
@@ -275,16 +282,33 @@ int scom_Tcp_Disconnect(int inTcpId){
 		sleep(5000);
 	}
 }
+//http://www.lammertbies.nl/comm/info/crc-calculation.html
+//http://srecord.sourceforge.net/crc16-ccitt.html
+unsigned short ccrc16(const unsigned char* data_p, unsigned char length){// CCITT
+    unsigned char x;
+    unsigned short crc = 0xFFFF;
+
+    while (length--){
+        x = crc >> 8 ^ *data_p++;
+        x ^= x>>4;
+        crc = (crc << 8) ^ ((unsigned short)(x << 12)) ^ ((unsigned short)(x <<5)) ^ ((unsigned short)x);
+    }
+    return crc;
+}
 
 int CheckFileCRC(int pid){
 	//unsigned char* ndata;
 	unsigned char msgBuffer[100];
 	int filesize = pfgetsize(pid);
-			
-	//int filesize = pfread(pid, 0, 0, ndata);
-	//framing_generate_crc16(ndata, filesize, unsigned char* Crc16);
+	
+	//unsigned char* Crc16;
+	
+	//int filesize = pfread(pid, 0, 0, &ndata);
+	//framing_generate_crc16(ndata, filesize, Crc16);
 	
 	sprintf(msgBuffer,"filesize = %d",filesize);ShowProgressMessage(msgBuffer, 0, 0);sleep(1500);
+	//sprintf(msgBuffer,"CRC = %s",Crc16);ShowProgressMessage(msgBuffer, 0, 0);sleep(1500);
+	//return 0;
 }
 
 //
@@ -346,9 +370,23 @@ int main(void)
 	
 	h2core_task();//to turn off watchdog
 	
-	sleep(2000);
+	//sleep(2000);
 	reset_arm();
+	//////////////////////////////////////////////////////////////////////////
+	ShowProgressMessage(crc16, 0, 0);sleep(1000);
+	ShowProgressMessage(fname, 0, 0);sleep(1000);
+	sprintf(msgBuffer,"%d",fsize);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
 	
+	//int filedesc = pfopen(fname, O_READ);
+	//CheckFileCRC(filedesc);
+	//pfclose(filedesc);
+	
+	//MDFile(fname);
+	unsigned short CS = ccrc16("0123456789",strlen("0123456789"));
+	//sprintf(msgBuffer,"%hu",CS);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
+	sprintf(msgBuffer,"%c",CS);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
+	h2core_exit_to_main_sector();
+	//////////////////////////////////////////////////////////////////////////
 	//
 	//TURN ON PPP
 	//
@@ -456,7 +494,6 @@ int main(void)
 	//SCOM Disconnect
 	SCOMDISCONNECT:
 	scomDisconnectStatus = scom_Disconnect();
-	
 	
 	/*	
 	while(1){

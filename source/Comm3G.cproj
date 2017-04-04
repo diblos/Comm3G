@@ -80,6 +80,9 @@
     <Compile Include="includes\ini.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="includes\md5.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="includes\pcd.h">
       <SubType>compile</SubType>
     </Compile>
@@ -140,7 +143,7 @@
     <Compile Include="includes\util.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="Md5.c">
+    <Compile Include="md5.c">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>

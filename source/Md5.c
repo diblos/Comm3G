@@ -427,8 +427,9 @@ static void MDTimeTrial ()
    Prints out message digest, a space, the string (in quotes) and a
    carriage return.
  */
-static void MDString (inString)
-char *inString;
+//static void MDString (inString)
+char MDString (char *inString)
+//char *inString;
 {
   MD5_CTX mdContext;
   unsigned int len = strlen (inString);
@@ -437,14 +438,19 @@ char *inString;
   MD5Update (&mdContext, inString, len);
   MD5Final (&mdContext);
   MDPrint (&mdContext);
-  printf (" \"%s\"\n\n", inString);
+  //printf (" \"%s\"\n\n", inString);
+  return inString;
+}
+
+int tester(int a,int b){
+	return a+b;
 }
 
 /* Computes the message digest for a specified file.
    Prints out message digest, a space, the file name, and a carriage
    return.
  */
-static void MDFile (filename)
+char MDFile (filename)
 char *filename;
 {
   FILE *inFile = fopen (filename, "rb");
