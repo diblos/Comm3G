@@ -77,7 +77,13 @@
     <PostBuildEvent>avr32-objcopy -O binary $(OutputFileName).elf $(OutputFileName).bin</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="md5driver.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="includes\ini.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\md5.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="includes\md5.h">
@@ -141,9 +147,6 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="includes\util.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="md5.c">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>
