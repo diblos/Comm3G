@@ -26,18 +26,18 @@
 #define true 1
 #define false 0
 
-#define ACK 0
-#define NACK 1
+#define ACK "ACK"
+#define NACK "NACK"
 
 char data[] = "OTA:2{s:3:DEV;s:16:0001010053415931;}";
 //==================================================
-char fname[] = "ContactlessCard.bin";
-char crc16[] = "7cfb0e5e7173d0e3f94c0bbde0c09682";
-int fsize = 218144;
+//char fname[] = "ContactlessCard.bin";
+//char crc16[] = "7cfb0e5e7173d0e3f94c0bbde0c09682";
+//int fsize = 218144;
 //--------------------------------------------------
-//char fname[40];
-//char crc16[2];
-//int fsize = 0;
+char fname[40];
+char crc16[2];
+int fsize = 0;
 //==================================================
 
 extern int reset_arm(void);//reset arm controller
@@ -215,10 +215,10 @@ int scom_Tcp_Read(int* intcpCID){
 
 }
 
-int SendAcknowledgement(int tcpCID,int AckValue){
+int SendAcknowledgement(int tcpCID,char * AckValue){
 	char toSendCommands[50];
 	int scomTcpWriteStatus = 0;
-	sprintf(toSendCommands,"%d",AckValue);
+	sprintf(toSendCommands,"%s",AckValue);
 	scomTcpWriteStatus = scom_Tcp_Write(tcpCID,toSendCommands,strlen(toSendCommands));
 	return scomTcpWriteStatus;
 }
@@ -227,7 +227,7 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 	char* bufData = 0;
 	int tcpReadLength = 0;
 	int i = 0;
-	int TIMEOUT = 10000;// TIMEOUT IN MILISECONDS
+	int TIMEOUT = 60000;// TIMEOUT IN MILISECONDS
 	unsigned char msgBuffer[100];
 	int DataLeft = fsize;
 	
@@ -240,7 +240,7 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 			 
 			 ShowProgressMessage("read the socket", 0, 0);
 			  tcpReadLength = tcp_read(&intcpCID,&bufData,TIMEOUT);
-			  sprintf(msgBuffer,"just read %d bytes",tcpReadLength);	ShowProgressMessage(msgBuffer, 0, 0);
+			  sprintf(msgBuffer,"just read %d bytes",tcpReadLength);	ShowProgressMessage(msgBuffer, 0, 0);sleep(500);
 			  if (tcpReadLength > 0)
 			  { 
 				  //if (tcpReadLength == 1){
@@ -251,16 +251,23 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 				  int result = pfwrite(filedesc,bufData,tcpReadLength);// PUT IN FILE
 				  if (result>=0){
 						//sprintf(msgBuffer,"result =%d",result);	ShowProgressMessage(msgBuffer, 0, 0);
-						sprintf(msgBuffer,"Data left = %d",DataLeft-result);	ShowProgressMessage(msgBuffer, 0, 0);
+						sprintf(msgBuffer,"Data left = %d",DataLeft-result);	ShowProgressMessage(msgBuffer, 0, 0);sleep(500);
 				  }else{
-					  ShowProgressMessage("Error writing file!", 0, 0);
+					  sprintf(msgBuffer,"Error writing file! errcode =%d",result); ShowProgressMessage(msgBuffer, 0, 0);sleep(60000);
 				  }
-				  sleep(1000);//MANDATORY
+				  //sleep(1000);//MANDATORY
+				  sleep(500);
 			  }else{
+				  sprintf(msgBuffer,"Error reading socket! errcode =%d",tcpReadLength);ShowProgressMessage(msgBuffer, 0, 0);sleep(60000);
 				  break;
 			  }			
+			  ShowProgressMessage("Flush buffer!", 0, 0);sleep(1000);
 			  tcp_flush(&intcpCID, tcpReadLength);// TCP FLUSH
+			  
+			  ShowProgressMessage("Acknowledging!", 0, 0);sleep(1000);
 			  SendAcknowledgement(intcpCID,ACK);
+			  
+			  ShowProgressMessage("End of Loop", 0, 0);sleep(1000);
 		} while (tcpReadLength>=0); // (tcpReadLength!=0);
 			
 	}
@@ -297,17 +304,17 @@ unsigned short ccrc16(const unsigned char* data_p, unsigned char length){// CCIT
 }
 
 int CheckFileCRC(int pid){
-	//unsigned char* ndata;
+	unsigned char* ndata;
 	unsigned char msgBuffer[100];
-	int filesize = pfgetsize(pid);
+	//int filesize = pfgetsize(pid);
 	
-	//unsigned char* Crc16;
+	unsigned char* Crc16;
 	
-	//int filesize = pfread(pid, 0, 0, &ndata);
-	//framing_generate_crc16(ndata, filesize, Crc16);
+	int filesize = pfread(pid, 0, 0, &ndata);
+	framing_generate_crc16(ndata, filesize, Crc16);
 	
 	sprintf(msgBuffer,"filesize = %d",filesize);ShowProgressMessage(msgBuffer, 0, 0);sleep(1500);
-	//sprintf(msgBuffer,"CRC = %s",Crc16);ShowProgressMessage(msgBuffer, 0, 0);sleep(1500);
+	sprintf(msgBuffer,"crc = %02X:%02X:%02X",Crc16[0],Crc16[1],Crc16[2]);ShowProgressMessage(msgBuffer, 0, 0);sleep(1500);
 	//return 0;
 }
 
@@ -334,8 +341,12 @@ int main(void)
 	int scomTcpReadBytesStatus = 0; // scomTcpReadBytesStatus for bytes reading
 	int scomTcpDisconnectStatus = 0;
 	struct_pppStatus outPppStatus;
-	char ipAddress[] = "192.168.40.110";
-	char port[] = "57000";
+	//char ipAddress[] = "192.168.40.110";
+	//char port[] = "57000";
+	
+	char ipAddress[] = "rdp.seamcloud.com";
+	char port[] = "33223";
+
 	
 	unsigned int iTickWaitPppOn = 0;
 	
@@ -370,22 +381,36 @@ int main(void)
 	
 	h2core_task();//to turn off watchdog
 	
-	//sleep(2000);
+	sleep(2000);
 	reset_arm();
 	//////////////////////////////////////////////////////////////////////////
-	ShowProgressMessage(crc16, 0, 0);sleep(1000);
-	ShowProgressMessage(fname, 0, 0);sleep(1000);
-	sprintf(msgBuffer,"%d",fsize);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
-	
+	//ShowProgressMessage(crc16, 0, 0);sleep(1000);
+	//ShowProgressMessage(fname, 0, 0);sleep(1000);
+	//sprintf(msgBuffer,"%d",fsize);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
+	//
 	//int filedesc = pfopen(fname, O_READ);
 	//CheckFileCRC(filedesc);
 	//pfclose(filedesc);
 	
 	//MDFile(fname);
-	unsigned short CS = ccrc16("0123456789",strlen("0123456789"));
+	//unsigned short CS = ccrc16("0123456789",strlen("0123456789"));
 	//sprintf(msgBuffer,"%hu",CS);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
-	sprintf(msgBuffer,"%c",CS);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
-	h2core_exit_to_main_sector();
+	//sprintf(msgBuffer,"%c",CS);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
+
+//echo dechex(CRC16Normal(get_hexbyte("100000000000000012510908001800040214000c000c021c0002000000000000")));	
+	//int x = get_hexbyte("100000000000000012510908001800040214000c000c021c0002000000000000"));
+	
+	
+	//hexarray_to_hexstring(unsigned char* data, int data_len, char* hexstring, char spacing);
+	//framing_generate_crc16()
+	
+	
+	//hexarray_to_hexstring(port, strlen(port), x, ":");
+	//unsigned char buff[100];hexstring_to_hexarray(crc16, strlen(crc16), buff);
+	//sprintf(msgBuffer,"%02X:%02X:%02X",buff[0],buff[1],buff[2]);ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
+	
+	
+	//h2core_exit_to_main_sector();
 	//////////////////////////////////////////////////////////////////////////
 	//
 	//TURN ON PPP
@@ -453,12 +478,15 @@ int main(void)
 	sprintf(msgBuffer,"%d",fsize);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
 	*/
 	
-	int CurrentStatus = ACK;
+	//char CurrentStatus[] = ACK;
 	
 	pfdelete(fname);// DELETE PREVIOUS FAILED TRANSFERED FILE IF ANY
-	SendAcknowledgement(tcpCID,CurrentStatus);// SEND ACK / NACK
+	//SendAcknowledgement(tcpCID,CurrentStatus);// SEND ACK / NACK
 	
-	if (CurrentStatus==ACK){
+	sleep(1000);
+	SendAcknowledgement(tcpCID,ACK);
+	
+	//if (1==1){
 			
 		ShowProgressMessage("Opening the file", 0, 0);sleep(1000);
 		int filedesc = pfopen(fname, O_CREATE | O_WRITE);
@@ -473,10 +501,10 @@ int main(void)
 		//}
 		
 		ShowProgressMessage("closing the file", 0, 0);sleep(1000);
-		CheckFileCRC(filedesc);
+		//CheckFileCRC(filedesc);
 		pfclose(filedesc);		
 	
-	}
+	//}
 	
 	//extern int pfopen(char* filename, unsigned short access);
 	//extern int pfwrite(int pid, unsigned char* data, int datalen);

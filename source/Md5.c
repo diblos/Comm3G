@@ -1,62 +1,3 @@
-/*
- **********************************************************************
- ** md5.h -- Header file for implementation of MD5                   **
- ** RSA Data Security, Inc. MD5 Message Digest Algorithm             **
- ** Created: 2/17/90 RLR                                             **
- ** Revised: 12/27/90 SRD,AJ,BSK,JT Reference C version              **
- ** Revised (for MD5): RLR 4/27/91                                   **
- **   -- G modified to have y&~z instead of y&z                      **
- **   -- FF, GG, HH modified to add in last register done            **
- **   -- Access pattern: round 2 works mod 5, round 3 works mod 3    **
- **   -- distinct additive constant for each step                    **
- **   -- round 4 added, working mod 7                                **
- **********************************************************************
- */
-
-/*
- **********************************************************************
- ** Copyright (C) 1990, RSA Data Security, Inc. All rights reserved. **
- **                                                                  **
- ** License to copy and use this software is granted provided that   **
- ** it is identified as the "RSA Data Security, Inc. MD5 Message     **
- ** Digest Algorithm" in all material mentioning or referencing this **
- ** software or this function.                                       **
- **                                                                  **
- ** License is also granted to make and use derivative works         **
- ** provided that such works are identified as "derived from the RSA **
- ** Data Security, Inc. MD5 Message Digest Algorithm" in all         **
- ** material mentioning or referencing the derived work.             **
- **                                                                  **
- ** RSA Data Security, Inc. makes no representations concerning      **
- ** either the merchantability of this software or the suitability   **
- ** of this software for any particular purpose.  It is provided "as **
- ** is" without express or implied warranty of any kind.             **
- **                                                                  **
- ** These notices must be retained in any copies of any part of this **
- ** documentation and/or software.                                   **
- **********************************************************************
- */
-
-/* typedef a 32 bit type */
-typedef unsigned long int UINT4;
-
-/* Data structure for MD5 (Message Digest) computation */
-typedef struct {
-  UINT4 i[2];                   /* number of _bits_ handled mod 2^64 */
-  UINT4 buf[4];                                    /* scratch buffer */
-  unsigned char in[64];                              /* input buffer */
-  unsigned char digest[16];     /* actual digest after MD5Final call */
-} MD5_CTX;
-
-void MD5Init ();
-void MD5Update ();
-void MD5Final ();
-
-/*
- **********************************************************************
- ** End of md5.h                                                     **
- ******************************* (cut) ********************************
- */
 
 /*
  **********************************************************************
@@ -92,7 +33,7 @@ void MD5Final ();
  */
 
 /* -- include the following line if the md5.h header file is separate -- */
-/* #include "md5.h" */
+ #include "md5.h" 
 
 /* forward declaration */
 static void Transform ();
@@ -362,6 +303,8 @@ UINT4 *in;
 #include <sys/types.h>
 #include <time.h>
 #include <string.h>
+
+#include "fposix.h"
 /* -- include the following file if the file md5.h is separate -- */
 /* #include "md5.h" */
 
@@ -369,11 +312,10 @@ UINT4 *in;
    Order is from low-order byte to high-order byte of digest.
    Each byte is printed with high-order hexadecimal digit first.
  */
-static void MDPrint (mdContext)
-MD5_CTX *mdContext;
+static void MDPrint (MD5_CTX *mdContext)
+//MD5_CTX *mdContext;
 {
   int i;
-
   for (i = 0; i < 16; i++)
     printf ("%02x", mdContext->digest[i]);
 }
@@ -450,26 +392,32 @@ int tester(int a,int b){
    Prints out message digest, a space, the file name, and a carriage
    return.
  */
-char MDFile (filename)
-char *filename;
+char MDFile (char *filename)
+//char *filename;
 {
-  FILE *inFile = fopen (filename, "rb");
+  int filedesc = pfopen(filename, O_CREATE | O_WRITE);
+  //FILE *inFile = fopen (filename, "rb");
   MD5_CTX mdContext;
   int bytes;
   unsigned char data[1024];
 
-  if (inFile == NULL) {
+  if (filedesc<0) {
+  //if (inFile == NULL) {
     printf ("%s can't be opened.\n", filename);
     return;
   }
 
+//extern int pfread(int pid, int readoffset, int readlen, unsigned char* data);
   MD5Init (&mdContext);
-  while ((bytes = fread (data, 1, 1024, inFile)) != 0)
+  //while ((bytes = fread (data, 1, 1024, inFile)) != 0)
+  while ((bytes = pfread(filedesc, 1, 1024, data)) >= 0)
     MD5Update (&mdContext, data, bytes);
-  MD5Final (&mdContext);
-  MDPrint (&mdContext);
-  printf (" %s\n", filename);
-  fclose (inFile);
+	MD5Final (&mdContext);
+	MDPrint (&mdContext);
+	printf (" %s\n", filename);
+  
+  //fclose (inFile);
+  pfclose(filedesc);		
 }
 
 /* Writes the message digest of the data from stdin onto stdout,
