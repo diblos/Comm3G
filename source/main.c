@@ -21,6 +21,7 @@
 #include "fposix.h"
 #include "scpi.h"
 #include "md5.h"
+#include "gui.h"
 
 #define bool int
 #define true 1
@@ -36,10 +37,12 @@ char data[] = "OTA:2{s:3:DEV;s:16:0001010053415931;}";
 //int fsize = 218144;
 //--------------------------------------------------
 char fname[40];
-char crc16[2];
+char crc16[32];
 int fsize = 0;
 //==================================================
-unsigned char tmpMsg[100];
+unsigned char tmpMsg[100]={NULL};
+
+
 
 extern int reset_arm(void);//reset arm controller
 
@@ -90,17 +93,17 @@ int scom_Status(struct_pppStatus* outPppStatus){
 	ShowProgressMessage("3G Checking Status", 0, 0);
 	if(scomFlagStatus == 0){
 		//display all Status Out
-		lcd_draw_fillrect(120, 30, 80, 130, ORANGE);
-		lcd_draw_string(outPppStatus->active, font_Fixesys16, 120, 30, BLACK, TRANSPARENT);
+		lcd_draw_fillrect(90, 30, 80, 130, ORANGE);
+		lcd_draw_string(outPppStatus->active, font_Fixesys16, 90, 30, BLACK, TRANSPARENT);
 		sprintf(bufferError,"%d",outPppStatus->Error);
-		lcd_draw_string(bufferError, font_Fixesys16, 120, 45, BLACK, TRANSPARENT);
-		lcd_draw_string(outPppStatus->dev, font_Fixesys16, 120, 60, BLACK, TRANSPARENT);
-		lcd_draw_string(outPppStatus->module, font_Fixesys16, 120, 75, BLACK, TRANSPARENT);
+		lcd_draw_string(bufferError, font_Fixesys16, 90, 45, BLACK, TRANSPARENT);
+		lcd_draw_string(outPppStatus->dev, font_Fixesys16, 90, 60, BLACK, TRANSPARENT);
+		lcd_draw_string(outPppStatus->module, font_Fixesys16, 90, 75, BLACK, TRANSPARENT);
 		sprintf(bufferSignal,"%d",outPppStatus->Signal);
-		lcd_draw_string(bufferSignal, font_Fixesys16, 120, 90, BLACK, TRANSPARENT);
-		lcd_draw_string(outPppStatus->APN, font_Fixesys16, 120, 105, BLACK,TRANSPARENT);
-		lcd_draw_string(outPppStatus->userId, font_Fixesys16, 120, 120, BLACK, TRANSPARENT);
-		lcd_draw_string(outPppStatus->Password, font_Fixesys16, 120, 135, BLACK, TRANSPARENT);
+		lcd_draw_string(bufferSignal, font_Fixesys16, 90, 90, BLACK, TRANSPARENT);
+		lcd_draw_string(outPppStatus->APN, font_Fixesys16, 90, 105, BLACK,TRANSPARENT);
+// 		lcd_draw_string(outPppStatus->userId, font_Fixesys16, 120, 120, BLACK, TRANSPARENT);
+// 		lcd_draw_string(outPppStatus->Password, font_Fixesys16, 120, 135, BLACK, TRANSPARENT);
 		return 0;
 	}else{
 		return 1;
@@ -165,8 +168,6 @@ int scom_Tcp_Read(int* intcpCID){
 	int tcpReadLength = 0;
 	int i = 0;
 	
-	unsigned char msgBuffer[100];
-	
 	ShowProgressMessage("Start scom_Tcp_Read", 0, 0);sleep(1000);
 	
 	tcpReadLength = tcp_read(intcpCID,&respData, 10000);
@@ -189,7 +190,7 @@ int scom_Tcp_Read(int* intcpCID){
 					return NACK;
 			}
 	}else if(tcpReadLength>=5){
-			char tag[100][10];
+			char tag[5][100];
 			int tagno = 0;
 			//
 			//// explode the strint
@@ -223,16 +224,23 @@ int SendAcknowledgement(int tcpCID,char * AckValue){
 	return scomTcpWriteStatus;
 }
 
-int TcpReadBytesToFile(int intcpCID,int filedesc){
+int TcpReadBytesToFile(int intcpCID,char * filename){
 	char* bufData = 0;
 	int tcpReadLength = 0;
 	int i = 0;
 	int TIMEOUT = 60000;// TIMEOUT IN MILISECONDS
-	unsigned char msgBuffer[100];
 	int TOTALFILESIZE = fsize;
 	bool FINISH = false;
 	bool ABORT_ERR = false;
 	int TOTALFILESIZE_RCV = 0;
+	
+	sprintf(tmpMsg,"Opening %s for writing...",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+	int filedesc = pfopen(filename, O_CREATE | O_WRITE);	
+	if (filedesc<0) {
+	sprintf(tmpMsg,"%s can't be opened.",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);
+    return false;
+	}
+	
 	ShowProgressMessage("Start scom_Tcp_Read", 0, 0);
 	
 	if(filedesc>=0){
@@ -240,7 +248,7 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 			 
 			 ShowProgressMessage("read the socket", 0, 0);
 			  tcpReadLength = tcp_read(&intcpCID,&bufData,TIMEOUT);
-			  sprintf(msgBuffer,"just read %d bytes",tcpReadLength);	ShowProgressMessage(msgBuffer, 0, 0);sleep(5000);
+			  sprintf(tmpMsg,"just read %d bytes",tcpReadLength);	ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
 			  if (tcpReadLength > 0)
 			  {   
 				  TOTALFILESIZE_RCV += tcpReadLength;
@@ -251,7 +259,7 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 							ShowProgressMessage("No more data!", 0, 0);sleep(2000);
 							FINISH = true;
 						}else if ((TOTALFILESIZE-result)>0){
-							sprintf(msgBuffer,"Data left = %d",TOTALFILESIZE-result);	ShowProgressMessage(msgBuffer, 0, 0);sleep(2000);
+							sprintf(tmpMsg,"Data left = %d",TOTALFILESIZE-result);	ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
 							}else
 							{
 								//to do:how  can this be and what to do
@@ -261,12 +269,12 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 						
 				  }else if(result==0){
 						/*TODO retry to write ?*/
-						sprintf(msgBuffer,"Error file! errcode =%d",result); ShowProgressMessage(msgBuffer, 0, 0);sleep(2000);
+						sprintf(tmpMsg,"Error file! errcode =%d",result); ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
 						ABORT_ERR =true;
 				  }else{
 					  // positive corrupt file or a error
 					  sound_negative();
-					  sprintf(msgBuffer,"Error writing file! errcode =%d",result); ShowProgressMessage(msgBuffer, 0, 0);sleep(300000);
+					  sprintf(tmpMsg,"Error writing file! errcode =%d",result); ShowProgressMessage(tmpMsg, 0, 0);sleep(300000);
 					  ABORT_ERR =true;
 				  }
 				  //sleep(1000);//MANDATORY
@@ -279,7 +287,7 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 				  
 			  }else{
 				  sound_negative();
-				  sprintf(msgBuffer,"Error reading socket! errcode =%d",tcpReadLength);ShowProgressMessage(msgBuffer, 0, 0);sleep(300000);
+				  sprintf(tmpMsg,"Error reading socket! errcode =%d",tcpReadLength);ShowProgressMessage(tmpMsg, 0, 0);sleep(300000);
 				  ABORT_ERR =true;
 			  }
 			  
@@ -299,12 +307,14 @@ int TcpReadBytesToFile(int intcpCID,int filedesc){
 	else
     {
 		//todo
-		NULL;
-		
+		return false;
 	}		
-	
+		
+	ShowProgressMessage("closing the file", 0, 0);sleep(1000);
+	pfclose(filedesc);
 	
 	//todo : return error code depending on error, abort or success
+	return true;
 }
 
 int scom_Tcp_Disconnect(int inTcpId){
@@ -341,11 +351,14 @@ static void MDPrint (MD5_CTX *mdContext)
   unsigned char bufData[100] = {0};
   int i;
   for (i = 0; i < 16; i++){
-   // printf ("%02x", mdContext->digest[i]);
-	//sprintf(tmpMsg,"%02x",mdContext->digest[i]);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 	sprintf(&bufData[strlen(bufData)], "%02x", mdContext->digest[i]);
   }	
-  sprintf(tmpMsg,"%s",bufData);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);sleep(60000);sleep(60000);sleep(60000);
+  sprintf(tmpMsg,"MD5: %s",bufData);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);//sleep(60000);sleep(60000);sleep(60000);
+  if(strcmp(bufData, crc16) != 0){
+	  ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
+  }else{
+	  ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
+  }
 }
 
 void MDString (char *inString)
@@ -357,12 +370,12 @@ void MDString (char *inString)
   MD5Update (&mdContext, inString, len);
   MD5Final (&mdContext);
   MDPrint (&mdContext);
-  //printf (" \"%s\"\n\n", inString);
-  sprintf(tmpMsg,"MD5 = %s",inString);ShowProgressMessage(tmpMsg, 0, 0);sleep(1500);
+  
 }
 
 void MDFile (char *filename)
 {
+  sprintf(tmpMsg,"Checking %s MD5...",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
   int filedesc = pfopen(filename, O_READ);
   if (filedesc<0) {
 	sprintf(tmpMsg,"%s can't be opened.\n",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);
@@ -377,10 +390,10 @@ void MDFile (char *filename)
   int count=0;
   while ((bytes = pfread(filedesc, count*1024, 1024, &data)) > 0){
 	count++;
-	sprintf(tmpMsg,"%d : filesize = %d",count,bytes);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
-	ShowProgressMessage("Calling MD5Update", 0, 0);	  
+	/*sprintf(tmpMsg,"%d : filesize = %d",count,bytes);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);*/
+	/*ShowProgressMessage("Calling MD5Update", 0, 0);	  */
 	MD5Update (&mdContext, &data, bytes);  
-	ShowProgressMessage("End of Loop", 0, 0);sleep(2000);	  
+	/*ShowProgressMessage("End of Loop", 0, 0);sleep(2000);*/
   }
   MD5Final (&mdContext);
   MDPrint (&mdContext);
@@ -446,27 +459,23 @@ int main(void)
 	
 	//Draw Something
 	lcd_draw_fillrect(0, 0, LCD_WIDTH, LCD_HEIGHT, ORANGE);
-	lcd_draw_string("3G COMM", font_MsSerif24, 0, 0, BLACK, TRANSPARENT);
+	lcd_draw_string("3G COMM", font_MsSerif24, 3, 0, BLACK, TRANSPARENT);
 	
-	lcd_draw_string("Active  :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
+	lcd_draw_string("Active  :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
-	lcd_draw_string("Error   :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
+	lcd_draw_string("Error   :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
-	lcd_draw_string("Dev     :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
+	lcd_draw_string("Dev     :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
-	lcd_draw_string("Module  :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
+	lcd_draw_string("Module  :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
-	lcd_draw_string("Signal  :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
+	lcd_draw_string("Signal  :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
-	lcd_draw_string("APN     :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
-	y_lcd += 15;
-	lcd_draw_string("UserID  :", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
-	y_lcd += 15;
-	lcd_draw_string("Password:", font_Fixesys16, 0, y_lcd, BLACK, TRANSPARENT);
+	lcd_draw_string("APN     :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	
 	h2core_task();//to turn off watchdog
 	
-	sleep(2000);
+	//sleep(2000);
 	reset_arm();
 	//////////////////////////////////////////////////////////////////////////
 	//ShowProgressMessage(crc16, 0, 0);sleep(1000);
@@ -494,8 +503,14 @@ int main(void)
 	
 	//MDString("MEGA");
 	//MDFile("myevolution.png");
-	
-	//h2core_exit_to_main_sector();
+		
+// 	progressbar pbar = {"A",1,0,0,BLUE,WHITE};
+// 	int x = 0;
+// 	for(x=0;x<=10;x++){
+// 		gui_draw_progress(&pbar, x);sleep(1000);
+// 	}
+// 	
+// 	h2core_exit_to_main_sector();
 	//////////////////////////////////////////////////////////////////////////
 	//
 	//TURN ON PPP
@@ -556,12 +571,16 @@ int main(void)
 	}else{
 		sleep(1000);
 	}
-
-	/*
-	ShowProgressMessage(crc16, 0, 0);sleep(1000);
-	ShowProgressMessage(fname, 0, 0);sleep(1000);
-	sprintf(msgBuffer,"%d",fsize);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
-	*/
+	
+	y_lcd = 120;
+	sprintf(msgBuffer,"filename:  %s",fname);
+	lcd_draw_string(msgBuffer, font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
+	y_lcd += 15;
+	sprintf(msgBuffer,"filesize:  %d bytes",fsize);
+	lcd_draw_string(msgBuffer, font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
+	y_lcd += 15;
+	sprintf(msgBuffer,"MD5: %s",crc16);
+	lcd_draw_string(msgBuffer, font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	
 	//char CurrentStatus[] = ACK;
 	
@@ -572,22 +591,13 @@ int main(void)
 	SendAcknowledgement(tcpCID,ACK);
 	
 	//if (1==1){
-			
-		ShowProgressMessage("Opening the file", 0, 0);sleep(1000);
-		int filedesc = pfopen(fname, O_CREATE | O_WRITE);
-	
-		sprintf(msgBuffer,"filedesc=%d",filedesc);	ShowProgressMessage(msgBuffer, 0, 0);
 		
-		scomTcpReadBytesStatus = TcpReadBytesToFile(tcpCID,filedesc);
+		scomTcpReadBytesStatus = TcpReadBytesToFile(tcpCID,fname);
 		//if(scomTcpReadBytesStatus != 0){
 			//goto DISCONNECTTCP;
 		//}else{
 			//sleep(1000);
 		//}
-		
-		ShowProgressMessage("closing the file", 0, 0);sleep(1000);
-		//CheckFileCRC(filedesc);
-		pfclose(filedesc);
 		
 		// todo md5 crc
 		MDFile(fname);
