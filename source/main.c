@@ -46,6 +46,14 @@ unsigned char tmpMsg[100]={NULL};
 
 extern int reset_arm(void);//reset arm controller
 
+void ShowPercentage(int current, int total) {
+	float percentage;
+	percentage = (float) current / total * 100.0;
+	sprintf(tmpMsg,"Percentage = %.2f%%", percentage);
+	//lcd_draw_fillrect(0, 200, LCD_WIDTH, 80, ORANGE);
+	lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
+}
+
 void ShowProgressMessage(char* message1, char* message2, unsigned char beeptone)
 {
 	#define xStatus 0
@@ -232,6 +240,7 @@ int TcpReadBytesToFile(int intcpCID,char * filename){
 	int TOTALFILESIZE = fsize;
 	bool FINISH = false;
 	bool ABORT_ERR = false;
+	//bool IS_HALF = false;
 	int TOTALFILESIZE_RCV = 0;
 	
 	sprintf(tmpMsg,"Opening %s for writing...",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
@@ -255,10 +264,13 @@ int TcpReadBytesToFile(int intcpCID,char * filename){
 				  ShowProgressMessage("write buffer into file", 0, 0);sleep(2000);
 				  int result = pfwrite(filedesc,bufData,tcpReadLength);// PUT IN FILE
 				  if (result==TOTALFILESIZE_RCV){
+						ShowPercentage(result,TOTALFILESIZE);
+						
 						if ((TOTALFILESIZE-result)==0) {
 							ShowProgressMessage("No more data!", 0, 0);sleep(2000);
 							FINISH = true;
 						}else if ((TOTALFILESIZE-result)>0){
+							//if (result<4096) IS_HALF = true;	
 							sprintf(tmpMsg,"Data left = %d",TOTALFILESIZE-result);	ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
 							}else
 							{
@@ -295,6 +307,8 @@ int TcpReadBytesToFile(int intcpCID,char * filename){
 			  tcp_flush(&intcpCID, tcpReadLength);// TCP FLUSH
 			  
 			  ShowProgressMessage("Acknowledging", 0, 0);sleep(2000);
+			  
+			  //if (!IS_HALF) SendAcknowledgement(intcpCID,ACK);
 			  SendAcknowledgement(intcpCID,ACK);
 			  
 			  ShowProgressMessage("End of Loop", 0, 0);sleep(2000);
