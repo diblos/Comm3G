@@ -42,16 +42,44 @@ int fsize = 0;
 //==================================================
 unsigned char tmpMsg[100]={NULL};
 
-
-
 extern int reset_arm(void);//reset arm controller
 
-void ShowPercentage(int current, int total) {
-	float percentage;
-	percentage = (float) current / total * 100.0;
-	sprintf(tmpMsg,"Percentage = %.2f%%", percentage);
-	//lcd_draw_fillrect(0, 200, LCD_WIDTH, 80, ORANGE);
-	lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
+#define POLY 0x8408
+/*
+//                                      16   12   5
+// this is the CCITT CRC 16 polynomial X  + X  + X  + 1.
+// This works out to be 0x1021, but the way the algorithm works
+// lets us use 0x8408 (the reverse of the bit pattern).  The high
+// bit is always assumed to be set, thus we only use 16 bits to
+// represent the 17 bit value.
+*/
+
+unsigned short Getcrc16(char *data_p, unsigned short length)
+{
+      unsigned char i;
+      unsigned int data;
+      unsigned int crc = 0xffff;
+
+      if (length == 0)
+            return (~crc);
+
+      do
+      {
+            for (i=0, data=(unsigned int)0xff & *data_p++;
+                 i < 8; 
+                 i++, data >>= 1)
+            {
+                  if ((crc & 0x0001) ^ (data & 0x0001))
+                        crc = (crc >> 1) ^ POLY;
+                  else  crc >>= 1;
+            }
+      } while (--length);
+
+      crc = ~crc;
+      data = crc;
+      crc = (crc << 8) | (data >> 8 & 0xff);
+
+      return (crc);
 }
 
 void ShowProgressMessage(char* message1, char* message2, unsigned char beeptone)
@@ -68,6 +96,23 @@ void ShowProgressMessage(char* message1, char* message2, unsigned char beeptone)
 		lcd_draw_string(message1, font_Fixesys16, xStatus, yStatus, WHITE, TRANSPARENT);
 	if(message2 != 0)
 		lcd_draw_string(message2, font_Fixesys16, xStatus+160, yStatus, WHITE, TRANSPARENT);
+}
+
+int psCheckSum(char *string)
+{
+  int XOR = 0;
+  sprintf(tmpMsg,"LEN: %d",strlen(string));ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
+  for (int i = 0; i < strlen(string); i++)
+  {
+    XOR = XOR ^ string[i];
+  }
+  return XOR;
+}
+
+float ShowPercentage(int current, int total) {
+	//float percentage;
+	//percentage = (float) current / total * 100.0;
+	return (float) current / total * 100.0;
 }
 
 int scom_Disconnect(){
@@ -232,7 +277,7 @@ int SendAcknowledgement(int tcpCID,char * AckValue){
 	return scomTcpWriteStatus;
 }
 
-int TcpReadBytesToFile(int intcpCID,char * filename){
+bool TcpReadBytesToFile(int intcpCID,char * filename){
 	char* bufData = 0;
 	int tcpReadLength = 0;
 	int i = 0;
@@ -264,8 +309,8 @@ int TcpReadBytesToFile(int intcpCID,char * filename){
 				  ShowProgressMessage("write buffer into file", 0, 0);sleep(2000);
 				  int result = pfwrite(filedesc,bufData,tcpReadLength);// PUT IN FILE
 				  if (result==TOTALFILESIZE_RCV){
-						ShowPercentage(result,TOTALFILESIZE);
-						
+						sprintf(tmpMsg,"Progress : %.2f%% ",ShowPercentage(result,TOTALFILESIZE));
+						lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
 						if ((TOTALFILESIZE-result)==0) {
 							ShowProgressMessage("No more data!", 0, 0);sleep(2000);
 							FINISH = true;
@@ -323,9 +368,12 @@ int TcpReadBytesToFile(int intcpCID,char * filename){
 		//todo
 		return false;
 	}		
-		
+	
+	if(ABORT_ERR) return false;
+	
 	ShowProgressMessage("closing the file", 0, 0);sleep(1000);
-	pfclose(filedesc);
+	int close = pfclose(filedesc);
+	if(close<0) return false;
 	
 	//todo : return error code depending on error, abort or success
 	return true;
@@ -366,7 +414,7 @@ static void MDPrint (MD5_CTX *mdContext)
   int i;
   for (i = 0; i < 16; i++){
 	sprintf(&bufData[strlen(bufData)], "%02x", mdContext->digest[i]);
-  }	
+  }
   sprintf(tmpMsg,"MD5: %s",bufData);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);//sleep(60000);sleep(60000);sleep(60000);
   if(strcmp(bufData, crc16) != 0){
 	  ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
@@ -467,13 +515,13 @@ int main(void)
 	//
 	h2core_init(0);
 	
-	h2core_set_debug(H2HW_3G|H2HW_TTL);
+	//h2core_set_debug(H2HW_3G|H2HW_TTL);
 	//h2core_set_debug(H2HW_3G|H2HW_USB|H2HW_TTL);
-	h2core_set_debug_console_output(H2HW_SERIAL);
+	//h2core_set_debug_console_output(H2HW_SERIAL);
 	
 	//Draw Something
 	lcd_draw_fillrect(0, 0, LCD_WIDTH, LCD_HEIGHT, ORANGE);
-	lcd_draw_string("3G COMM", font_MsSerif24, 3, 0, BLACK, TRANSPARENT);
+	lcd_draw_string("OTA Update", font_MsSerif18, 3, 0, BLACK, TRANSPARENT);
 	
 	lcd_draw_string("Active  :", font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
@@ -490,7 +538,7 @@ int main(void)
 	h2core_task();//to turn off watchdog
 	
 	//sleep(2000);
-	reset_arm();
+	//reset_arm();
 	//////////////////////////////////////////////////////////////////////////
 	//ShowProgressMessage(crc16, 0, 0);sleep(1000);
 	//ShowProgressMessage(fname, 0, 0);sleep(1000);
@@ -515,8 +563,6 @@ int main(void)
 	//unsigned char buff[100];hexstring_to_hexarray(crc16, strlen(crc16), buff);
 	//sprintf(msgBuffer,"%02X:%02X:%02X",buff[0],buff[1],buff[2]);ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
 	
-	//MDString("MEGA");
-	//MDFile("myevolution.png");
 		
 // 	progressbar pbar = {"A",1,0,0,BLUE,WHITE};
 // 	int x = 0;
@@ -524,7 +570,41 @@ int main(void)
 // 		gui_draw_progress(&pbar, x);sleep(1000);
 // 	}
 // 	
-// 	h2core_exit_to_main_sector();
+//unsigned char bufData[100] = {0};
+//int a[] = {0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x51, 0x09, 0x08, 0x00, 0x18, 0x00, 0x04, 0x02, 0x14, 0x00, 0x0c, 0x00, 0x0c, 0x02, 0x1c, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+//unsigned char a[]={0};
+//char b[] = "100000000000000012510908001800040214000c000c021c0002000000000000";
+//char b[] = "10 00 00 00 00 00 00 00 12 51 09 08 00 18 00 04 02 14 00 0c 00 0c 02 1c 00 02 00 00 00 00 00 00";
+
+	
+	//lcd_draw_string(b, font_default8, 3, 200, BLACK, TRANSPARENT);
+	
+	//c = get_hexbyte(b);
+	
+	//hexstring_to_hexarray(&b, strlen(b), &a);
+	//sprintf(tmpMsg,">> %d",strlen(c));ShowProgressMessage(tmpMsg, 0, 0);sleep(20000);
+	
+	
+	//int theCount = strlen(a);int i;
+	 //for (i = 0; i < theCount; i++){
+	//sprintf(&bufData[strlen(bufData)], "%02x", a[i]);	
+  //}
+  
+  //hexarray_to_hexstring(&a, strlen(a), &bufData, ":");
+  
+	//framing_generate_crc16(a,strlen(a),&bufData);
+	
+	//unsigned short w = Getcrc16(&b, strlen(b));
+	
+	
+	char a[] = "2929B100070A9F95380C820D";
+	char b[] = {0x29,0x29,0xB1,0x00,0x07,0x0A,0x9F,0x95,0x38,0x0C,0x82,0x0D};
+	int output = 0;
+	output = psCheckSum(a);		
+	sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+	output = psCheckSum(b);		
+	sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+ 	h2core_exit_to_main_sector();
 	//////////////////////////////////////////////////////////////////////////
 	//
 	//TURN ON PPP
@@ -607,14 +687,15 @@ int main(void)
 	//if (1==1){
 		
 		scomTcpReadBytesStatus = TcpReadBytesToFile(tcpCID,fname);
-		//if(scomTcpReadBytesStatus != 0){
-			//goto DISCONNECTTCP;
-		//}else{
-			//sleep(1000);
-		//}
+		if(scomTcpReadBytesStatus == false){
+			// FILE TRANSMISSION ERROR
+			ShowProgressMessage("Update failed!", 0, 0);sleep(1000);
+		}else{
+			// TODO MD5 CRC
+			MDFile(fname);
+		}
 		
-		// todo md5 crc
-		MDFile(fname);
+
 	//}
 
 	//TCP Disconnect
@@ -628,9 +709,6 @@ int main(void)
 	SCOMDISCONNECT:
 	scomDisconnectStatus = scom_Disconnect();
 
-
-
-	
 	/*	
 
 	while(1){
