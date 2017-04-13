@@ -37,50 +37,13 @@ char data[] = "OTA:2{s:3:DEV;s:16:0001010053415931;}";
 //int fsize = 218144;
 //--------------------------------------------------
 char fname[40];
-char crc16[32];
+char md5[32];
 int fsize = 0;
+int fchunks = 0;
 //==================================================
 unsigned char tmpMsg[100]={NULL};
 
 extern int reset_arm(void);//reset arm controller
-
-#define POLY 0x8408
-/*
-//                                      16   12   5
-// this is the CCITT CRC 16 polynomial X  + X  + X  + 1.
-// This works out to be 0x1021, but the way the algorithm works
-// lets us use 0x8408 (the reverse of the bit pattern).  The high
-// bit is always assumed to be set, thus we only use 16 bits to
-// represent the 17 bit value.
-*/
-
-unsigned short Getcrc16(char *data_p, unsigned short length)
-{
-      unsigned char i;
-      unsigned int data;
-      unsigned int crc = 0xffff;
-
-      if (length == 0)
-            return (~crc);
-
-      do
-      {
-            for (i=0, data=(unsigned int)0xff & *data_p++;
-                 i < 8; 
-                 i++, data >>= 1)
-            {
-                  if ((crc & 0x0001) ^ (data & 0x0001))
-                        crc = (crc >> 1) ^ POLY;
-                  else  crc >>= 1;
-            }
-      } while (--length);
-
-      crc = ~crc;
-      data = crc;
-      crc = (crc << 8) | (data >> 8 & 0xff);
-
-      return (crc);
-}
 
 void ShowProgressMessage(char* message1, char* message2, unsigned char beeptone)
 {
@@ -101,7 +64,7 @@ void ShowProgressMessage(char* message1, char* message2, unsigned char beeptone)
 int psCheckSum(char *string)
 {
   int XOR = 0;
-  sprintf(tmpMsg,"LEN: %d",strlen(string));ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
+  //sprintf(tmpMsg,"LEN: %d",strlen(string));ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
   for (int i = 0; i < strlen(string); i++)
   {
     XOR = XOR ^ string[i];
@@ -259,9 +222,10 @@ int scom_Tcp_Read(int* intcpCID){
 				}
 				
 			}// tagno=1
-			sprintf(crc16,"%s",tag[0]);// CRC CHAR
+			sprintf(md5,"%s",tag[0]);// CRC CHAR
 			sprintf(fname,"%s",tag[1]);// FILENAME
-			fsize = atoi(bufData);// LAST DATA
+			fsize = atoi(tag[2]);// LAST DATA
+			fchunks = atoi(bufData);// LAST DATA
 		//return ACK;
 	}
 	
@@ -269,7 +233,7 @@ int scom_Tcp_Read(int* intcpCID){
 
 }
 
-int SendAcknowledgement(int tcpCID,char * AckValue){
+int SendTCP(int tcpCID,char * AckValue){
 	char toSendCommands[50];
 	int scomTcpWriteStatus = 0;
 	sprintf(toSendCommands,"%s",AckValue);
@@ -277,7 +241,7 @@ int SendAcknowledgement(int tcpCID,char * AckValue){
 	return scomTcpWriteStatus;
 }
 
-bool TcpReadBytesToFile(int intcpCID,char * filename){
+bool TcpReadBytesToFile_OLD(int intcpCID,char * filename){
 	char* bufData = 0;
 	int tcpReadLength = 0;
 	int i = 0;
@@ -354,7 +318,7 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 			  ShowProgressMessage("Acknowledging", 0, 0);sleep(2000);
 			  
 			  //if (!IS_HALF) SendAcknowledgement(intcpCID,ACK);
-			  SendAcknowledgement(intcpCID,ACK);
+			  SendTCP(intcpCID,ACK);
 			  
 			  ShowProgressMessage("End of Loop", 0, 0);sleep(2000);
 			  
@@ -394,48 +358,38 @@ int scom_Tcp_Disconnect(int inTcpId){
 		sleep(5000);
 	}
 }
-//http://www.lammertbies.nl/comm/info/crc-calculation.html
-//http://srecord.sourceforge.net/crc16-ccitt.html
-unsigned short ccrc16(const unsigned char* data_p, unsigned char length){// CCITT
-    unsigned char x;
-    unsigned short crc = 0xFFFF;
 
-    while (length--){
-        x = crc >> 8 ^ *data_p++;
-        x ^= x>>4;
-        crc = (crc << 8) ^ ((unsigned short)(x << 12)) ^ ((unsigned short)(x <<5)) ^ ((unsigned short)x);
-    }
-    return crc;
-}
-
-static void MDPrint (MD5_CTX *mdContext)
+ char MDPrint (MD5_CTX *mdContext)
 {
   unsigned char bufData[100] = {0};
   int i;
   for (i = 0; i < 16; i++){
 	sprintf(&bufData[strlen(bufData)], "%02x", mdContext->digest[i]);
   }
-  sprintf(tmpMsg,"MD5: %s",bufData);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);//sleep(60000);sleep(60000);sleep(60000);
-  if(strcmp(bufData, crc16) != 0){
-	  ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
-  }else{
-	  ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
-  }
+  sprintf(tmpMsg,"MD5: %s",bufData);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);//sleep(60000);sleep(60000);sleep(60000);
+  return bufData;
 }
 
-void MDString (char *inString)
+bool MDString (char *inString , char *verify)
 {
-  MD5_CTX mdContext;
-  unsigned int len = strlen (inString);
+	MD5_CTX mdContext;
+	unsigned int len = strlen (inString);
 
-  MD5Init (&mdContext);
-  MD5Update (&mdContext, inString, len);
-  MD5Final (&mdContext);
-  MDPrint (&mdContext);
+	MD5Init (&mdContext);
+	MD5Update (&mdContext, inString, len);
+	MD5Final (&mdContext);
+	char bufData = MDPrint (&mdContext);
   
+	if(strcmp(bufData, verify) != 0){
+		ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
+		return false;
+	}else{
+		ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
+		return true;
+	}
 }
 
-void MDFile (char *filename)
+bool MDFile (char *filename)
 {
   sprintf(tmpMsg,"Checking %s MD5...",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
   int filedesc = pfopen(filename, O_READ);
@@ -458,9 +412,200 @@ void MDFile (char *filename)
 	/*ShowProgressMessage("End of Loop", 0, 0);sleep(2000);*/
   }
   MD5Final (&mdContext);
-  MDPrint (&mdContext);
+  char bufData = MDPrint (&mdContext);
+  
+  if(strcmp(bufData, md5) != 0){
+	  ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
+	  return false;
+  }else{
+	  ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
+	  return true;
+  }
+  
   pfclose(filedesc);
+  
   return 0;
+}
+
+bool TcpReadBytesToFile(int intcpCID,char * filename){
+	char* bufData = 0;
+	unsigned char tmpData[100] = {0};
+	int tcpReadLength1 = 0;int tcpReadLength2 = 0;
+	int i = 0;int j = 0;int chunksize = 0;int chunkcrc = 0;
+	int TIMEOUT = 60000;// TIMEOUT IN MILISECONDS
+	int TOTALFILESIZE = fsize;
+	bool FINISH = false;
+	bool ABORT_ERR = false;
+	
+	int TOTALFILESIZE_RCV = 0;
+	
+	sprintf(tmpMsg,"Opening %s for writing...",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+	int filedesc = pfopen(filename, O_CREATE | O_WRITE);	
+	if (filedesc<0) {
+	sprintf(tmpMsg,"%s can't be opened.",filename);ShowProgressMessage(tmpMsg, 0, 0);sleep(60000);
+    return false;
+	}
+	//================================================================================================================================================
+	
+		int scomTcpWriteStatus = 0;
+	
+	    for (i=1; i <= fchunks ; i++){
+			
+			sprintf(tmpMsg,"PROP|%d",i);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
+			SendTCP(intcpCID,tmpMsg);// REQUEST CHUNK PROPERTY
+						
+			tcpReadLength1 = tcp_read(&intcpCID,&bufData,TIMEOUT);	
+
+			if (tcpReadLength1 > 0){// HARDCODED STRING SIZE
+				char tag[3][100];
+				int tagno = 0;
+				
+				for(j = 0; j<tcpReadLength1; j++){//EXPLODE
+					if(bufData[j]==0X7C){// '|'
+						strcpy(tag[tagno++],tmpData);
+						memset(tmpData,0,sizeof(tmpData));
+					}else{
+						sprintf(&tmpData[strlen(tmpData)], "%c", bufData[j]);
+					}				
+				}// tagno=1
+				chunksize = atoi(tag[0]);// CHUNK SIZE
+				chunkcrc = atoi(tmpData);// CRC
+				//sprintf(chunkcrc,"%s",tmpData);// FILENAME
+				
+				//ShowProgressMessage(chunkcrc, 0, 0);sleep(5000);
+				sprintf(tmpMsg,"len:%d | cs:%d",chunksize,chunkcrc);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+				
+				tcp_flush(&intcpCID, tcpReadLength1);// TCP FLUSH
+				
+				bool RETRY = true;
+				while(RETRY){
+					
+					sprintf(tmpMsg,"GET|%d",i);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
+					SendTCP(intcpCID,tmpMsg);// REQUEST CHUNK DATA
+
+					tcpReadLength2 = tcp_read(&intcpCID,&bufData,TIMEOUT);
+					//SANITY CHECKING STARTS
+					
+					//sprintf(tmpMsg,"size : %d|%d",tcpReadLength2,chunksize);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);	
+					if (tcpReadLength2 == chunksize){
+						int CS = psCheckSum(get_hexchar(bufData));
+						//bool CS = MDString(bufData,chunkcrc);
+						sprintf(tmpMsg,"cs : %d|%d",CS,chunkcrc);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+						if(CS==chunkcrc){
+							int result = pfwrite(filedesc,bufData,tcpReadLength2);// PUT IN FILE
+														
+							sprintf(tmpMsg,"Progress : %.2f%% ",ShowPercentage(result,TOTALFILESIZE));
+							lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
+							
+							if ((TOTALFILESIZE-result)==0) {
+								ShowProgressMessage("No more data!", 0, 0);sleep(1000);
+								SendTCP(intcpCID,ACK);// SEND ACK
+								RETRY=false;
+							}							
+						}else{
+							ShowProgressMessage("checksum mismatched! Retrying...", 0, 0);sleep(1000);
+							RETRY = true;
+						}
+						
+					}else{
+						ShowProgressMessage("chunk size mismatched! Retrying...", 0, 0);sleep(1000);
+						RETRY = true;
+					}
+					//SANITY CHECKING ENDS
+					tcp_flush(&intcpCID, tcpReadLength2);// TCP FLUSH
+				}
+			}
+			
+		}
+		ShowProgressMessage("closing the file", 0, 0);sleep(1000);
+		int close = pfclose(filedesc);
+	
+		return true;
+	//================================================================================================================================================
+	/*
+	ShowProgressMessage("Start scom_Tcp_Read", 0, 0);
+	
+	if(filedesc>=0){
+		do {
+			 
+			 ShowProgressMessage("read the socket", 0, 0);
+			  tcpReadLength = tcp_read(&intcpCID,&bufData,TIMEOUT);
+			  sprintf(tmpMsg,"just read %d bytes",tcpReadLength);	ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+			  if (tcpReadLength > 0)
+			  {   
+				  TOTALFILESIZE_RCV += tcpReadLength;
+				  ShowProgressMessage("write buffer into file", 0, 0);sleep(2000);
+				  int result = pfwrite(filedesc,bufData,tcpReadLength);// PUT IN FILE
+				  if (result==TOTALFILESIZE_RCV){
+						sprintf(tmpMsg,"Progress : %.2f%% ",ShowPercentage(result,TOTALFILESIZE));
+						lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
+						if ((TOTALFILESIZE-result)==0) {
+							ShowProgressMessage("No more data!", 0, 0);sleep(2000);
+							FINISH = true;
+						}else if ((TOTALFILESIZE-result)>0){
+							//if (result<4096) IS_HALF = true;	
+							sprintf(tmpMsg,"Data left = %d",TOTALFILESIZE-result);	ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+							}else
+							{
+								//to do:how  can this be and what to do
+								ABORT_ERR =true;
+								
+							}
+						
+				  }else if(result==0){
+						//TODO retry to write ?
+						sprintf(tmpMsg,"Error file! errcode =%d",result); ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+						ABORT_ERR =true;
+				  }else{
+					  // positive corrupt file or a error
+					  sound_negative();
+					  sprintf(tmpMsg,"Error writing file! errcode =%d",result); ShowProgressMessage(tmpMsg, 0, 0);sleep(300000);
+					  ABORT_ERR =true;
+				  }
+				  //sleep(1000);//MANDATORY
+				  
+			  }else if(tcpReadLength==0){
+			  
+			      //normal disconnect
+				  ShowProgressMessage("Normal disconnect!", 0, 0);sleep(2000);
+				  FINISH=true;
+				  
+			  }else{
+				  sound_negative();
+				  sprintf(tmpMsg,"Error reading socket! errcode =%d",tcpReadLength);ShowProgressMessage(tmpMsg, 0, 0);sleep(300000);
+				  ABORT_ERR =true;
+			  }
+			  
+			  ShowProgressMessage("Flush buffer", 0, 0);sleep(2000);
+			  tcp_flush(&intcpCID, tcpReadLength);// TCP FLUSH
+			  
+			  ShowProgressMessage("Acknowledging", 0, 0);sleep(2000);
+			  
+			  //if (!IS_HALF) SendAcknowledgement(intcpCID,ACK);
+			  SendAcknowledgement(intcpCID,ACK);
+			  
+			  ShowProgressMessage("End of Loop", 0, 0);sleep(2000);
+			  
+			  //if (FINISH==true)break;
+			  
+		} while ((tcpReadLength>=0) && (!FINISH)&&(!ABORT_ERR)); // (tcpReadLength!=0);
+			
+	} // if(filedesc>=0)
+	else
+    {
+		//todo
+		return false;
+	}		
+	
+	if(ABORT_ERR) return false;
+	
+	ShowProgressMessage("closing the file", 0, 0);sleep(1000);
+	int close = pfclose(filedesc);
+	if(close<0) return false;
+	
+	//todo : return error code depending on error, abort or success
+	return true;
+	*/
 }
 
 int CheckFileCRC(int pid){
@@ -501,11 +646,10 @@ int main(void)
 	int scomTcpReadBytesStatus = 0; // scomTcpReadBytesStatus for bytes reading
 	int scomTcpDisconnectStatus = 0;
 	struct_pppStatus outPppStatus;
-	//char ipAddress[] = "192.168.40.110";
-	//char port[] = "57000";
 	
-	char ipAddress[] = "rdp.seamcloud.com";
-	char port[] = "33223";
+	char ipAddress[] = "192.168.40.110";char port[] = "57000";
+	
+	//char ipAddress[] = "rdp.seamcloud.com";	char port[] = "33223";
 
 	
 	unsigned int iTickWaitPppOn = 0;
@@ -538,7 +682,7 @@ int main(void)
 	h2core_task();//to turn off watchdog
 	
 	//sleep(2000);
-	//reset_arm();
+	reset_arm();
 	//////////////////////////////////////////////////////////////////////////
 	//ShowProgressMessage(crc16, 0, 0);sleep(1000);
 	//ShowProgressMessage(fname, 0, 0);sleep(1000);
@@ -597,14 +741,18 @@ int main(void)
 	//unsigned short w = Getcrc16(&b, strlen(b));
 	
 	
-	char a[] = "2929B100070A9F95380C820D";
-	char b[] = {0x29,0x29,0xB1,0x00,0x07,0x0A,0x9F,0x95,0x38,0x0C,0x82,0x0D};
-	int output = 0;
-	output = psCheckSum(a);		
-	sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
-	output = psCheckSum(b);		
-	sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
- 	h2core_exit_to_main_sector();
+	//char a[] = "2929B100070A9F95380C820D";
+	////char b[] = {0x29,0x29,0xB1,0x00,0x07,0x0A,0x9F,0x95,0x38,0x0C,0x82,0x0D};
+	//int output = 0;
+	//output = psCheckSum(a);		
+	//sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+	////output = psCheckSum(b);		
+	////sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+ 	//
+	 //
+	 //sprintf(tmpMsg,">> %d",get_int("70"));ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+	 //
+	 //h2core_exit_to_main_sector();
 	//////////////////////////////////////////////////////////////////////////
 	//
 	//TURN ON PPP
@@ -673,16 +821,18 @@ int main(void)
 	sprintf(msgBuffer,"filesize:  %d bytes",fsize);
 	lcd_draw_string(msgBuffer, font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
 	y_lcd += 15;
-	sprintf(msgBuffer,"MD5: %s",crc16);
+	sprintf(msgBuffer,"Chunks  :  %d",fchunks);
 	lcd_draw_string(msgBuffer, font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);
-	
+	y_lcd += 15;
+	sprintf(msgBuffer,"MD5: %s",md5);
+	lcd_draw_string(msgBuffer, font_Fixesys16, 3, y_lcd, BLACK, TRANSPARENT);	
 	//char CurrentStatus[] = ACK;
 	
 	pfdelete(fname);// DELETE PREVIOUS FAILED TRANSFERED FILE IF ANY
 	//SendAcknowledgement(tcpCID,CurrentStatus);// SEND ACK / NACK
-	
-	sleep(1000);
-	SendAcknowledgement(tcpCID,ACK);
+		
+	//sleep(1000);
+	//SendAcknowledgement(tcpCID,ACK);
 	
 	//if (1==1){
 		
