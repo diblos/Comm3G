@@ -62,11 +62,11 @@ void ShowProgressMessage(char* message1, char* message2, unsigned char beeptone)
 		lcd_draw_string(message2, font_Fixesys16, xStatus+160, yStatus, WHITE, TRANSPARENT);
 }
 
-int psCheckSum(char *string)
+int psCheckSum(char *string,int Len)
 {
   int XOR = 0;
   //sprintf(tmpMsg,"LEN: %d",strlen(string));ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
-  for (int i = 0; i < strlen(string); i++)
+  for (int i = 0; i < Len; i++)
   {
     XOR = XOR ^ string[i];
   }
@@ -395,20 +395,20 @@ bool MDString (char *inString , char *verify)
 	return false;
 }
 
-bool MDData (unsigned char *inData , char *verify)
+bool MDData (char *inData ,int inDataLen, char *verify)
 {
 	MD5_CTX mdContext;
 	//unsigned int len = strlen (inData);
-	unsigned int len = sizeof (inData);
-	
-	sprintf(tmpMsg,"size: %d",len);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+		
+	//sprintf(tmpMsg,"size: %d",inDataLen);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
 		
 	MD5Init (&mdContext);
-	MD5Update (&mdContext, &inData, len);
+	MD5Update (&mdContext, &inData, inDataLen);
 	MD5Final (&mdContext);
 	MDPrint (&mdContext);
 	  
-	sprintf(tmpMsg,"ver: %s",verify);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+	 ShowProgressMessage(verify, 0, 0);sleep(5000);
+	//sprintf(tmpMsg,"ver: %s",verify);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
  
 	if(strcmp(resultMD5, verify) != 0){
 		//ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
@@ -482,7 +482,7 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 	    for (i=1; i <= fchunks ; i++){
 			char* bufData = 0;
 			unsigned char tmpData[100] = {0};
-			int chunksize = 0;char chunkcrc[32];int intcs=0;
+			int chunksize = 0;char chunkcrc[32]={NULL};int intcs=0;
 					
 			sprintf(tmpMsg,"PROP|%d",i);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 			SendTCP(intcpCID,tmpMsg);// REQUEST CHUNK PROPERTY
@@ -503,10 +503,10 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 				}// tagno=1
 				chunksize = atoi(tag[0]);// CHUNK SIZE
 				intcs = atoi(tag[1]);// CRC INT
-				//sprintf(chunkcrc,"%s",tmpData);// CRC STR
-				
+				sprintf(chunkcrc,"%s",tmpData);// CRC STR
+								
 				//sprintf(tmpMsg,"len:%d | cs:%s",chunksize,chunkcrc);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
-				sprintf(tmpMsg,"len:%d | cs:%d",chunksize,intcs);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+				//sprintf(tmpMsg,"len:%d | cs:%d",chunksize,intcs);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
 				
 				tcp_flush(&intcpCID, tcpReadLength1);// TCP FLUSH
 				
@@ -521,12 +521,17 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 					
 					//sprintf(tmpMsg,"size : %d|%d",tcpReadLength2,chunksize);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);	
 					if (tcpReadLength2 == chunksize){
-						////int CS = psCheckSum(get_hexchar(bufData));
-						//bool CS = MDData(&bufData,chunkcrc);
-						//
-						//if(CS==true){
+						
+						//ShowProgressMessage(chunkcrc, 0, 0);sleep(2000);
+						
+						int CS = psCheckSum(bufData,chunksize);
+						
+						//bool CS = MDData(&bufData,chunksize,chunkcrc);
+						sprintf(tmpMsg,"compare CS : %d|%d",CS,intcs);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);	
+						
+						if(CS==intcs){
 							int result = pfwrite(filedesc,bufData,tcpReadLength2);// PUT IN FILE
-														//
+														
 							sprintf(tmpMsg,"Progress : %.2f%% ",ShowPercentage(result,TOTALFILESIZE));
 							lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
 							
@@ -537,10 +542,10 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 							}else{
 								RETRY=false;
 							}							
-						//}else{
-							//ShowProgressMessage("checksum mismatched! Retrying...", 0, 0);sleep(1000);
-							//RETRY = true;
-						//}
+						}else{
+							ShowProgressMessage("checksum mismatched! Retrying...", 0, 0);sleep(1000);
+							RETRY = true;
+						}
 						
 					}else{
 						sprintf(tmpMsg,"chunk size mismatched [%d of %d]! Retrying...",tcpReadLength2,chunksize);
@@ -787,17 +792,11 @@ int main(void)
 	
 	
 	//char a[] = "2929B100070A9F95380C820D";
-	////char b[] = {0x29,0x29,0xB1,0x00,0x07,0x0A,0x9F,0x95,0x38,0x0C,0x82,0x0D};
-	//int output = 0;
-	//output = psCheckSum(a);		
-	//sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
-	////output = psCheckSum(b);		
-	////sprintf(tmpMsg,">> %d",output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
- 	//
-	 //
-	 //sprintf(tmpMsg,">> %d",get_int("70"));ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
-	 //
+	//char b[] = {0x29,0x29,0xB1,0x00,0x07,0x0A,0x9F,0x95,0x38,0x0C,0x82,0x0D};
+	//int output = psCheckSum(a,strlen(a));
+	//sprintf(tmpMsg,"%s >> %d",a,output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
 	 //h2core_exit_to_main_sector();
+	 
 	//////////////////////////////////////////////////////////////////////////
 	//
 	//TURN ON PPP
