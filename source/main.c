@@ -42,6 +42,7 @@ int fsize = 0;
 int fchunks = 0;
 //==================================================
 unsigned char tmpMsg[100]={NULL};
+unsigned char resultMD5[32] = {NULL};
 
 extern int reset_arm(void);//reset arm controller
 
@@ -359,34 +360,64 @@ int scom_Tcp_Disconnect(int inTcpId){
 	}
 }
 
- char MDPrint (MD5_CTX *mdContext)
+
+ void MDPrint (MD5_CTX *mdContext)
 {
   unsigned char bufData[100] = {0};
   int i;
   for (i = 0; i < 16; i++){
 	sprintf(&bufData[strlen(bufData)], "%02x", mdContext->digest[i]);
   }
-  sprintf(tmpMsg,"MD5: %s",bufData);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);//sleep(60000);sleep(60000);sleep(60000);
-  return bufData;
+  sprintf(resultMD5,"%s",bufData);ShowProgressMessage(resultMD5, 0, 0);sleep(5000);//sleep(60000);sleep(60000);sleep(60000);
 }
 
 bool MDString (char *inString , char *verify)
 {
 	MD5_CTX mdContext;
 	unsigned int len = strlen (inString);
-
+	
 	MD5Init (&mdContext);
 	MD5Update (&mdContext, inString, len);
 	MD5Final (&mdContext);
-	char bufData = MDPrint (&mdContext);
-  
-	if(strcmp(bufData, verify) != 0){
-		ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
+	MDPrint (&mdContext);
+	  
+	//sprintf(tmpMsg,"MD5 1: %s",resultMD5);ShowProgressMessage(retChr, 0, 0);sleep(5000);
+	sprintf(tmpMsg,"ver: %s",verify);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+	//ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
+  //
+	if(strcmp(resultMD5, verify) != 0){
+		//ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
 		return false;
 	}else{
-		ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
+		//ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
 		return true;
 	}
+	return false;
+}
+
+bool MDData (unsigned char *inData , char *verify)
+{
+	MD5_CTX mdContext;
+	//unsigned int len = strlen (inData);
+	unsigned int len = sizeof (inData);
+	
+	sprintf(tmpMsg,"size: %d",len);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+		
+	MD5Init (&mdContext);
+	MD5Update (&mdContext, &inData, len);
+	MD5Final (&mdContext);
+	MDPrint (&mdContext);
+	  
+	sprintf(tmpMsg,"ver: %s",verify);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
+ 
+	if(strcmp(resultMD5, verify) != 0){
+		//ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
+		return false;
+	}else{
+		//ShowProgressMessage("MD5 Succeed!", 0, 0);sleep(2000);
+		return true;
+	}
+	return false;
 }
 
 bool MDFile (char *filename)
@@ -412,9 +443,9 @@ bool MDFile (char *filename)
 	/*ShowProgressMessage("End of Loop", 0, 0);sleep(2000);*/
   }
   MD5Final (&mdContext);
-  char bufData = MDPrint (&mdContext);
+  MDPrint (&mdContext);
   
-  if(strcmp(bufData, md5) != 0){
+  if(strcmp(resultMD5, md5) != 0){
 	  ShowProgressMessage("MD5 Failed!", 0, 0);sleep(2000);
 	  return false;
   }else{
@@ -428,10 +459,9 @@ bool MDFile (char *filename)
 }
 
 bool TcpReadBytesToFile(int intcpCID,char * filename){
-	char* bufData = 0;
-	unsigned char tmpData[100] = {0};
+
 	int tcpReadLength1 = 0;int tcpReadLength2 = 0;
-	int i = 0;int j = 0;int chunksize = 0;int chunkcrc = 0;
+	int i = 0;int j = 0;
 	int TIMEOUT = 60000;// TIMEOUT IN MILISECONDS
 	int TOTALFILESIZE = fsize;
 	bool FINISH = false;
@@ -450,7 +480,10 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 		int scomTcpWriteStatus = 0;
 	
 	    for (i=1; i <= fchunks ; i++){
-			
+			char* bufData = 0;
+			unsigned char tmpData[100] = {0};
+			int chunksize = 0;char chunkcrc[32];int intcs=0;
+					
 			sprintf(tmpMsg,"PROP|%d",i);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 			SendTCP(intcpCID,tmpMsg);// REQUEST CHUNK PROPERTY
 						
@@ -469,11 +502,11 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 					}				
 				}// tagno=1
 				chunksize = atoi(tag[0]);// CHUNK SIZE
-				chunkcrc = atoi(tmpData);// CRC
-				//sprintf(chunkcrc,"%s",tmpData);// FILENAME
+				intcs = atoi(tag[1]);// CRC INT
+				//sprintf(chunkcrc,"%s",tmpData);// CRC STR
 				
-				//ShowProgressMessage(chunkcrc, 0, 0);sleep(5000);
-				sprintf(tmpMsg,"len:%d | cs:%d",chunksize,chunkcrc);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+				//sprintf(tmpMsg,"len:%d | cs:%s",chunksize,chunkcrc);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+				sprintf(tmpMsg,"len:%d | cs:%d",chunksize,intcs);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
 				
 				tcp_flush(&intcpCID, tcpReadLength1);// TCP FLUSH
 				
@@ -488,12 +521,12 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 					
 					//sprintf(tmpMsg,"size : %d|%d",tcpReadLength2,chunksize);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);	
 					if (tcpReadLength2 == chunksize){
-						int CS = psCheckSum(get_hexchar(bufData));
-						//bool CS = MDString(bufData,chunkcrc);
-						sprintf(tmpMsg,"cs : %d|%d",CS,chunkcrc);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
-						if(CS==chunkcrc){
+						////int CS = psCheckSum(get_hexchar(bufData));
+						//bool CS = MDData(&bufData,chunkcrc);
+						//
+						//if(CS==true){
 							int result = pfwrite(filedesc,bufData,tcpReadLength2);// PUT IN FILE
-														
+														//
 							sprintf(tmpMsg,"Progress : %.2f%% ",ShowPercentage(result,TOTALFILESIZE));
 							lcd_draw_string(tmpMsg, font_Fixesys16, 3, 200, BLACK,ORANGE);
 							
@@ -501,14 +534,17 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 								ShowProgressMessage("No more data!", 0, 0);sleep(1000);
 								SendTCP(intcpCID,ACK);// SEND ACK
 								RETRY=false;
+							}else{
+								RETRY=false;
 							}							
-						}else{
-							ShowProgressMessage("checksum mismatched! Retrying...", 0, 0);sleep(1000);
-							RETRY = true;
-						}
+						//}else{
+							//ShowProgressMessage("checksum mismatched! Retrying...", 0, 0);sleep(1000);
+							//RETRY = true;
+						//}
 						
 					}else{
-						ShowProgressMessage("chunk size mismatched! Retrying...", 0, 0);sleep(1000);
+						sprintf(tmpMsg,"chunk size mismatched [%d of %d]! Retrying...",tcpReadLength2,chunksize);
+						ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 						RETRY = true;
 					}
 					//SANITY CHECKING ENDS
@@ -684,6 +720,15 @@ int main(void)
 	//sleep(2000);
 	reset_arm();
 	//////////////////////////////////////////////////////////////////////////
+	//char a[] = "2929B100070A9F95380C820D";
+	//char v[] = "3c14a7285e2d0c7e326f6eb72e7c84eb";
+	//
+	//bool result = MDString(a,v);
+	//if(result){
+	//ShowProgressMessage("SUCCESS", 0, 0);sleep(1000);
+	//}else{
+	//ShowProgressMessage("FAIL", 0, 0);sleep(1000);}
+	
 	//ShowProgressMessage(crc16, 0, 0);sleep(1000);
 	//ShowProgressMessage(fname, 0, 0);sleep(1000);
 	//sprintf(msgBuffer,"%d",fsize);	ShowProgressMessage(msgBuffer, 0, 0);sleep(1000);
