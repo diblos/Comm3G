@@ -484,7 +484,8 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 			unsigned char tmpData[100] = {0};
 			int chunksize = 0;char chunkcrc[32]={NULL};int intcs=0;
 					
-			sprintf(tmpMsg,"PROP|%d",i);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
+			sprintf(tmpMsg,"PROP|%d",i);
+			ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 			SendTCP(intcpCID,tmpMsg);// REQUEST CHUNK PROPERTY
 						
 			tcpReadLength1 = tcp_read(&intcpCID,&bufData,TIMEOUT);	
@@ -513,7 +514,8 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 				bool RETRY = true;
 				while(RETRY){
 					
-					sprintf(tmpMsg,"GET|%d",i);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
+					sprintf(tmpMsg,"GET|%d",i);
+					ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 					SendTCP(intcpCID,tmpMsg);// REQUEST CHUNK DATA
 
 					tcpReadLength2 = tcp_read(&intcpCID,&bufData,TIMEOUT);
@@ -527,7 +529,7 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 						int CS = psCheckSum(bufData,chunksize);
 						
 						//bool CS = MDData(&bufData,chunksize,chunkcrc);
-						sprintf(tmpMsg,"compare CS : %d|%d",CS,intcs);ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);	
+						//sprintf(tmpMsg,"compare CS : %d|%d",CS,intcs);ShowProgressMessage(tmpMsg, 0, 0);sleep(1000);
 						
 						if(CS==intcs){
 							int result = pfwrite(filedesc,bufData,tcpReadLength2);// PUT IN FILE
@@ -647,21 +649,6 @@ bool TcpReadBytesToFile(int intcpCID,char * filename){
 	//todo : return error code depending on error, abort or success
 	return true;
 	*/
-}
-
-int CheckFileCRC(int pid){
-	unsigned char* ndata;
-	//unsigned char msgBuffer[100];
-	//int filesize = pfgetsize(pid);
-	
-	unsigned char* Crc16;
-	
-	int filesize = pfread(pid, 0, 0, &ndata);
-	framing_generate_crc16(ndata, filesize, Crc16);
-	
-	sprintf(tmpMsg,"filesize = %d",filesize);ShowProgressMessage(tmpMsg, 0, 0);sleep(1500);
-	sprintf(tmpMsg,"crc = %02X:%02X:%02X",Crc16[0],Crc16[1],Crc16[2]);ShowProgressMessage(tmpMsg, 0, 0);sleep(1500);
-	//return 0;
 }
 
 //
