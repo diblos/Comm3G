@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
 #include "debug.h"
 #include "font.h"
 #include "color.h"
@@ -22,6 +24,7 @@
 #include "scpi.h"
 #include "md5.h"
 #include "gui.h"
+#include "tps.h"
 
 #define bool int
 #define true 1
@@ -782,7 +785,21 @@ int main(void)
 	//char b[] = {0x29,0x29,0xB1,0x00,0x07,0x0A,0x9F,0x95,0x38,0x0C,0x82,0x0D};
 	//int output = psCheckSum(a,strlen(a));
 	//sprintf(tmpMsg,"%s >> %d",a,output);ShowProgressMessage(tmpMsg, 0, 0);sleep(5000);
-	 //h2core_exit_to_main_sector();
+	 
+	 int i;int size = 10;int hour = 3600;
+	 srand(time(NULL)); // randomize seed
+	 
+	 int currentTime=0;
+	 for(i=0;i<size;i++){
+		currentTime = getTime(8);
+		//int nextTime = getNextHB(currentTime,0,(rand()%10)*hour); //if nextTime = 0
+		//int nextTime = getNextCFG(currentTime);
+		//sprintf(tmpMsg,"curr: %d, next: %d",currentTime,nextTime);
+		sprintf(tmpMsg,"%d",rand()%7200);
+		ShowProgressMessage(tmpMsg, 0, 0);sleep(2000);
+	 }
+			 
+	 h2core_exit_to_main_sector();
 	 
 	//////////////////////////////////////////////////////////////////////////
 	//

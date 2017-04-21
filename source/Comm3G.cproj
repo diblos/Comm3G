@@ -77,6 +77,12 @@
     <PostBuildEvent>avr32-objcopy -O binary $(OutputFileName).elf $(OutputFileName).bin</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="includes\tps.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="includes\tps.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="md5driver.c">
       <SubType>compile</SubType>
     </Compile>

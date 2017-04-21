@@ -26,7 +26,7 @@ extern void debug_set_level(unsigned char level);
 extern void debug_set_port(unsigned int ports);
 extern void debug_print(unsigned char level, char* msg);
 extern void debug_printbytes(unsigned char level, char* msg, unsigned char* data, int data_len);
-
+extern void debug_printstring(unsigned char level, char* msg1, char* msg2);
 
 
 #endif /* DEBUG_H_ */
